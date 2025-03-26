@@ -1,6 +1,8 @@
 import os
 import tempfile
 import streamlit as st
+import json
+import pandas as pd
 from ai_engine import analyze_car_images
 
 # Initialize session states
@@ -61,11 +63,57 @@ if st.session_state.uploaded_files:
                             image_paths.append(tmp_file.name)
 
                     # Call the analysis function
-                    result = analyze_car_images(image_paths)
+                    raw_result = analyze_car_images(image_paths)
 
-                    # Display results in a nice format
-                    st.subheader("Analysis Results")
-                    st.write(result)
+                    # Parse the JSON response
+                    try:
+                        parsed_result = json.loads(raw_result)
+                        usage_metadata = parsed_result.get("usage_metadata", {})
+
+                        # Extract token details
+                        model_version = parsed_result.get("model_version", "N/A")
+                        prompt_tokens = str(
+                            usage_metadata.get("prompt_token_count", "N/A")
+                        )
+                        candidates_tokens = str(
+                            usage_metadata.get("candidates_token_count", "N/A")
+                        )
+                        total_tokens = str(
+                            usage_metadata.get("total_token_count", "N/A")
+                        )
+
+                        # Create a pandas DataFrame for token usage
+                        token_df = pd.DataFrame(
+                            {
+                                "Metric": [
+                                    "Model",
+                                    "Prompt Tokens",
+                                    "Candidates Tokens",
+                                    "Total Tokens",
+                                ],
+                                "Value": [
+                                    model_version,
+                                    prompt_tokens,
+                                    candidates_tokens,
+                                    total_tokens,
+                                ],
+                            }
+                        )
+
+                        # Display token usage table
+                        st.subheader("Token Usage")
+                        st.dataframe(token_df, hide_index=True)
+
+                        # Display the analysis results
+                        st.subheader("Analysis Results")
+                        analysis_text = parsed_result["candidates"][0]["content"][
+                            "parts"
+                        ][0]["text"]
+                        st.write(analysis_text)
+
+                    except (json.JSONDecodeError, KeyError) as parse_error:
+                        st.error(f"Error parsing model response: {parse_error}")
+                        st.write(raw_result)
 
                 except Exception as e:
                     st.error(f"An error occurred: {str(e)}")

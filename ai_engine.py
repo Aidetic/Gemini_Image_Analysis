@@ -47,7 +47,7 @@ def analyze_car_images(image_paths):
         response = client.models.generate_content(
             model="gemini-1.5-flash", contents=contents
         )
+        return response.model_dump_json()
 
-        return response.text
     except Exception as e:
         return f"Error during analysis: {str(e)}"
